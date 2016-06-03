@@ -143,3 +143,29 @@ class SimpleDatabaseTestCase(unittest.TestCase):
             {'name': 'alive', 'type': 'bool'},
         ]
         self.assertEqual(columns, expected)
+        
+    def test_table_sort(self):
+        sorted_generator = self.db.authors.sort('name')
+        edgard = next(sorted_generator)
+        self.assertEqual(edgard.name, 'Edgard Alan Poe')
+        jorge = next(sorted_generator)
+        self.assertEqual(jorge.name, 'Jorge Luis Borges')
+        
+    def test_table_sort_default(self):
+        sg = self.db.authors.sort()
+        jorge = next(sg)
+        self.assertEqual(jorge.name, 'Jorge Luis Borges')
+        edgard =  next(sg)
+        self.assertEqual(edgard.name, 'Edgard Alan Poe')
+        
+    def test_table_sort_other_fields(self):
+        self.db.authors.insert(3, 'Julio Cortázar', date(1914, 8, 26), 'ARG', False)
+        sg =  sg = self.db.authors.sort('birth_date')
+        edgard = next(sg)
+        self.assertEqual(edgard.name, 'Edgard Alan Poe')
+        jorge = next(sg)
+        self.assertEqual(jorge.name, 'Jorge Luis Borges')
+        julio = next(sg)
+        self.assertEqual(julio.name, 'Julio Cortázar')
+        
+        

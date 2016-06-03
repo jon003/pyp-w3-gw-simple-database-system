@@ -111,6 +111,12 @@ class Table(object):
         """
         return (Row(row) for row in self.rows)
         
+    def sort(self, field='id'):
+        """
+        Returns a generator of the rows, sorted by the field chosen
+        """
+        return (Row(row) for row in sorted(self.rows, key=lambda row: row[field]))
+
 class Row(object):
     def __init__(self, rowdict):
         if not isinstance(rowdict, dict):
