@@ -1,50 +1,76 @@
+import json
+import os
+from datetime import date
+from .exceptions import ValidationError
+
+
 
 class Database(object):
-    def __init__(self, db_name):
-        # should initialize the list of tables to be empty.
-        # create a file on disk, and write out the empty list of tables.
-        # might look like:
-        # if there is a file, then load_data_from_file()
-        # otherwise, init empty one and write it out
+    def __init__(self, db_name, filepath):
         self.tables = []
+        self.filepath = filepath
         
-    def show_tables():
-        # should return an empty list with no tables created.
-        # otherwise, just go read all of the table names from file.
-        # returns a list of the table names.
-        return [getattr(table, 'name') for tables in self.tables]
+    def show_tables(self):
+        return [getattr(table, 'name') for table in self.tables]
         
-    def create_table(table_name, columns=None):
-        # should set it to an attribute  of the database.
-        # should write out the existance of the table to disk.
+    def create_table(self, table_name, columns=None, new=True):
         new_table = Table(table_name, columns)
+        setattr(new_table, 'database', self)
         setattr(self, table_name, new_table)
         self.tables.append(new_table)
-        self.write()
+        
+        if new:
+            self.write()
 
-    def write():
-        pass
-        # should create a new db file if it doesn't exist.
-        # iterate through all of the tables, and write them out to disk.
-    
-    def load():
-        pass
-        # should load an existing db file
-        with open(path, 'r') as fh:
-            db_as_dict = fh.read()
+    def write(self):
+        """
+        This method writes all data related to the current table to a file.
+        """
+        write_file = []
+        
+        for table in self.tables:
+            # table is Table obj
+            table_dict = {}
+            table_name = getattr(table, 'name')
+            table_dict[table_name] = {}
+            table_dict[table_name].update({'schema': table.schema})
+            table_dict[table_name].update({'rows': []})
             
-        # TODO: turn our on-disk data representation into actual lists of dicts of lists of dicts.
+            # make row loop here
+            for row in table.rows:
+                table_dict[table_name]['rows'].append(row)
+            
+            write_file.append(table_dict)
         
-        for table in db_as_dict:
-            create_table(table)
-        # iterate through all tables in file and load those into the object
+        with open(self.filepath, 'w') as fh:
+            fh.write(json.dumps(write_file, default=self._json_serial))
+            
+    def _json_serial(self, obj):
+        """JSON serializer for objects not serializable by default json code"""
+    
+        if isinstance(obj, date):
+            serial = obj.isoformat()
+            return serial
+        raise TypeError ("Type not serializable")
+            
+    
+    def load(self):
+        """
+        This method parses a JSON file to instantiate the specific objects into memeory (Database, Tables, and Rows)
+        """
+        with open(self.filepath, 'r') as fh:
+            db_as_dict = json.loads(fh.read())
         
+
+        for table in list(db_as_dict):
+            table_name = list(table.keys())[0]
+            self.create_table(table_name, columns=table[table_name]['schema'], new=False)
+            
+            for row in table[table_name]['rows']:
+                getattr(self, table_name).rows.append(row)
         
 class Table(object):
-    def __init__(self, table_name, columns=None):
-        # create a new table object.
-        # add the object as an attribute of the db object
-        # call Database.write() to write it out to disk.
+    def __init__(self, table_name, columns=None):.
         self.name = table_name
         self.schema = columns
         self.rows = []
@@ -52,76 +78,52 @@ class Table(object):
     def count(self):
         return len(self.rows)
 
-    def _validate_against_schema(new_row):
-        # New_row is a list, in order.
-        # self.scheme is a list of dicts.
+    def _validate_against_schema(self, new_row):
         if not len(new_row) == len(self.schema):
-            return False
+            raise ValidationError('Invalid amount of field')
 
-        # http://stackoverflow.com/questions/1549801/differences-between-isinstance-and-type-in-python
-        # https://docs.python.org/2/library/types.html
-
-        typecheck = {
-            'str': types.StringType,
-            'int': types.IntType,
-            'bool': types.BoolType
-            'date': date_object
-        }
         
         for arg, column in zip(new_row, self.schema):
-            #if not isinstance(arg, column['type']):
-            if not str(type(arg)) == column['type']):
-                return False
-                
-                
+            if not type(arg) == eval(column['type']):
+                formated_type = str(type(arg)).split("\'")
+                raise ValidationError('Invalid type of field "{}": Given "{}", expected "{}"'.format(column['name'], formated_type[1], column['type']))
+        return True
 
-
-
-[1, 'Jorge Luis Borges', date(1899, 8, 24), 'ARG', False]
-
-        schema =[
-            {'name': 'id', 'type': 'int'},
-            {'name': 'name', 'type': 'str'},
-            {'name': 'birth_date', 'type': 'date'},
-            {'name': 'nationality', 'type': 'str'},
-            {'name': 'alive', 'type': 'bool'},
-        ],
-        
-        # look up the schema in the database
-        # is new_row even the right length?  If not, raise.
-        # schema is a list, we can iterate.
-        # check type() against each element in the row.
-        # return True or False
     
-    def insert(*args):
-        # args are the raw values to insert.
-        # insert is a method of the table object.
-        pass
-        # finally, write out the table using Database.write()
-        if _validate_against_schema(args):
-            for key in self.schema:
-                
+    def insert(self, *args):
+        if self._validate_against_schema(args):
+            fields = [column['name'] for column in self.schema]
+            row = dict(zip(fields, args))
+            self.rows.append(row)
+            self.database.write()
             
-    def describe(self)
+    def describe(self):
         # This should basically just return the schema.
         return self.schema
     
-    def query(**kwargs):
+    def query(self, **kwargs):
         # must be kwargs, because we don't know the format of the schema.
         # returns iteration, but can just be a yield
         # TODO: Match on ALL kwargs before yielding a result.
         for key, value in kwargs.items():
-            for row in self.all():
-                if getattr(row, key) == value:
-                    yield Row(rowdict)
+            for row in self.rows:
+                #print('DEBUG: row is {}, and row[key] is {} and value is: {}').format(row, row[key], value)
+                if row[key] == value:
+                    yield Row(row)
     
-    def all():
-        # should return a generator object.
-        return (Row(rowdict) for rowdict in self.rows)
+    def all(self):
+        """
+        This method returns a generator of each row in the table.
+        Yielded row is an instance of the Row class.
+        """
+        return (Row(row) for row in self.rows)
         
 
 class Row(object):
     def __init__(self, rowdict):
+        # rowdict is passed a dictionary.
         # iterate over the schema, setting attributes based on key:value
+        if not isinstance(rowdict, dict):
+            raise ValidationError('rowdict was not passed a dictionary')
         for k, v in rowdict.items():
-            setattr(self, k, v)
+            setattr(self, str(k), v)
