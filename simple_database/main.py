@@ -26,11 +26,3 @@ def connect_database(db_name):
     db_name = ezdb.Database(db_name, filepath)
     db_name.load()
     return db_name
-
-
-# def create_database(db_name):
-#     # instantiates a new DB object, associates file on disk with it.
-#     # returns the new database object
-#     db_name = ezdb.Database(db_name)
-#     return db_name
-
